@@ -1,174 +1,200 @@
-/**
- * Admin class for managing ticket machine operations
- * Assigned to: Group Member B
- */
-
 class Admin {
 
-    /**
-     * Views all destinations in the ticket machine
-     */
     fun viewAllDestinations(ticketMachine: TicketMachine) {
         val destinations = ticketMachine.getAllDestinations()
 
-        if (destinations.isEmpty()) {
-            println("\n No destinations available\n")
-            return
-        }
-
         println("\n========================================")
-        println("        ALL DESTINATIONS")
+        println("       ALL DESTINATIONS REPORT")
         println("========================================")
         println()
-        println("%-20s %-15s %-15s %-15s".format(
-            "Destination", "Single", "Return", "Total Sales"
+        println("%-20s %-12s %-12s %-10s %-15s".format(
+            "Station Name",
+            "Single (£)",
+            "Return (£)",
+            "Sales",
+            "Takings (£)"
         ))
-        println("-".repeat(65))
+        println("-".repeat(75))
+
+        var totalSales = 0
+        var totalTakings = 0.0
 
         for (dest in destinations) {
-            println("%-20s �%-14.2f �%-14.2f �%-14.2f".format(
+            println("%-20s £%-11.2f £%-11.2f %-10d £%-14.2f".format(
                 dest.name,
                 dest.singlePrice,
                 dest.returnPrice,
+                dest.salesCount,
                 dest.totalTakings
             ))
+            totalSales += dest.salesCount
+            totalTakings += dest.totalTakings
         }
 
-        println("-".repeat(65))
-        println("Total Destinations: ${destinations.size}")
+        println("-".repeat(75))
+        println("%-20s %-12s %-12s %-10d £%-14.2f".format(
+            "TOTAL",
+            "",
+            "",
+            totalSales,
+            totalTakings
+        ))
         println("========================================\n")
     }
 
-    /**
-     * Adds a new destination to the ticket machine
-     */
+
     fun addDestination(
         ticketMachine: TicketMachine,
         name: String,
         singlePrice: Double,
         returnPrice: Double
-    ) {
+    ): Boolean {
+        // Validate inputs
         if (name.isBlank()) {
-            println(" Destination name cannot be empty")
-            return
+            println("Error: Destination name cannot be empty.")
+            return false
         }
 
         if (singlePrice <= 0 || returnPrice <= 0) {
-            println(" Prices must be positive")
-            return
+            println("Error: Prices must be positive values.")
+            return false
         }
 
+        if (returnPrice < singlePrice) {
+            println("Warning: Return price is typically higher than single price.")
+        }
+
+        // Check if destination already exists
+        val existingDestinations = ticketMachine.getAllDestinations()
+        if (existingDestinations.any { it.name.equals(name, ignoreCase = true) }) {
+            println("Error: Destination '$name' already exists.")
+            return false
+        }
+
+        // Create and add new destination
         val newDestination = Destination(name, singlePrice, returnPrice)
         ticketMachine.addDestination(newDestination)
-        println(" Destination '$name' added successfully")
-        println("  Single: �${"%.2f".format(singlePrice)}")
-        println("  Return: �${"%.2f".format(returnPrice)}")
+
+        println("✓ Destination '$name' added successfully!")
+        println("  Single: £${"%.2f".format(singlePrice)}")
+        println("  Return: £${"%.2f".format(returnPrice)}")
+
+        return true
     }
 
-    /**
-     * Updates prices for a specific destination
-     */
+
     fun updateDestination(
         ticketMachine: TicketMachine,
-        name: String,
-        singlePrice: Double,
-        returnPrice: Double
-    ) {
+        destinationName: String,
+        newSinglePrice: Double,
+        newReturnPrice: Double
+    ): Boolean {
+        // Validate inputs
+        if (newSinglePrice <= 0 || newReturnPrice <= 0) {
+            println("Error: Prices must be positive values.")
+            return false
+        }
+
+        // Find the destination
         val destinations = ticketMachine.getAllDestinations()
-        val destination = destinations.find { it.name.equals(name, ignoreCase = true) }
+        val destination = destinations.find { it.name.equals(destinationName, ignoreCase = true) }
 
         if (destination == null) {
-            println(" Destination '$name' not found")
-            return
+            println("Error: Destination '$destinationName' not found.")
+            return false
         }
 
-        if (singlePrice <= 0 || returnPrice <= 0) {
-            println(" Prices must be positive")
-            return
-        }
+        // Store old prices for confirmation message
+        val oldSingle = destination.singlePrice
+        val oldReturn = destination.returnPrice
 
-        destination.updatePrices(singlePrice, returnPrice)
-        println(" Destination '$name' updated successfully")
-        println("  New Single: �${"%.2f".format(singlePrice)}")
-        println("  New Return: �${"%.2f".format(returnPrice)}")
+        // Update prices
+        destination.singlePrice = newSinglePrice
+        destination.returnPrice = newReturnPrice
+
+        println("✓ Destination '$destinationName' updated successfully!")
+        println("  Single: £${"%.2f".format(oldSingle)} → £${"%.2f".format(newSinglePrice)}")
+        println("  Return: £${"%.2f".format(oldReturn)} → £${"%.2f".format(newReturnPrice)}")
+
+        return true
     }
 
-    /**
-     * Adjusts all destination prices by a factor
-     * @param factor multiplier (e.g., 1.1 for 10% increase, 0.9 for 10% decrease)
-     */
-    fun adjustAllPrices(ticketMachine: TicketMachine, factor: Double) {
+
+    fun adjustAllPrices(ticketMachine: TicketMachine, factor: Double): Boolean {
+        // Validate factor
         if (factor <= 0) {
-            println(" Factor must be positive")
-            return
+            println("Error: Factor must be a positive number.")
+            return false
+        }
+
+        if (factor == 1.0) {
+            println("Warning: Factor of 1.0 means no change in prices.")
+            return false
         }
 
         val destinations = ticketMachine.getAllDestinations()
 
         if (destinations.isEmpty()) {
-            println(" No destinations to update")
-            return
+            println("Error: No destinations to update.")
+            return false
         }
 
-        println("\n--- Adjusting All Prices ---")
-        println("Factor: $factor")
+        // Calculate percentage change for display
+        val percentChange = (factor - 1.0) * 100
+        val changeDirection = if (percentChange > 0) "increase" else "decrease"
 
-        val percentChange = ((factor - 1.0) * 100)
-        val changeText = if (percentChange > 0) {
-            "+${"%.1f".format(percentChange)}% increase"
-        } else {
-            "${"%.1f".format(percentChange)}% decrease"
-        }
-        println("Change: $changeText\n")
+        println("\n========================================")
+        println("  ADJUSTING ALL PRICES")
+        println("  ${changeDirection.uppercase()}: ${"%.1f".format(kotlin.math.abs(percentChange))}%")
+        println("========================================\n")
 
+        // Update all destinations
         for (dest in destinations) {
             val oldSingle = dest.singlePrice
             val oldReturn = dest.returnPrice
-            val newSingle = oldSingle * factor
-            val newReturn = oldReturn * factor
 
-            dest.updatePrices(newSingle, newReturn)
+            dest.singlePrice = String.format("%.2f", dest.singlePrice * factor).toDouble()
+            dest.returnPrice = String.format("%.2f", dest.returnPrice * factor).toDouble()
 
-            println("${dest.name}:")
-            println("  Single: �${"%.2f".format(oldSingle)} � �${"%.2f".format(newSingle)}")
-            println("  Return: �${"%.2f".format(oldReturn)} � �${"%.2f".format(newReturn)}")
+            println("%-20s £%-8.2f → £%-8.2f | £%-8.2f → £%-8.2f".format(
+                dest.name,
+                oldSingle, dest.singlePrice,
+                oldReturn, dest.returnPrice
+            ))
         }
 
-        println("\n All prices adjusted successfully")
+        println("\n✓ All prices adjusted successfully!\n")
+        return true
     }
 
-    /**
-     * Displays system summary including total sales
-     */
+
     fun displaySystemSummary(ticketMachine: TicketMachine) {
         val destinations = ticketMachine.getAllDestinations()
 
-        println("\nTPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPW")
-        println("Q                    SYSTEM SUMMARY                         Q")
-        println("ZPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP]")
+        val totalDestinations = destinations.size
+        val totalSales = destinations.sumOf { it.salesCount }
+        val totalRevenue = destinations.sumOf { it.totalTakings }
+        val avgPriceSingle = if (destinations.isNotEmpty())
+            destinations.map { it.singlePrice }.average() else 0.0
+        val avgPriceReturn = if (destinations.isNotEmpty())
+            destinations.map { it.returnPrice }.average() else 0.0
 
-        println("\nStation: ${ticketMachine.originStation}")
-        println("Total Destinations: ${destinations.size}")
+        // Find most popular destination
+        val mostPopular = destinations.maxByOrNull { it.salesCount }
 
-        val totalSales = destinations.sumOf { it.totalTakings }
-        println("Total Revenue: �${"%.2f".format(totalSales)}")
+        println("\n========================================")
+        println("       SYSTEM SUMMARY")
+        println("========================================")
+        println("Total Destinations:     $totalDestinations")
+        println("Total Tickets Sold:     $totalSales")
+        println("Total Revenue:          £${"%.2f".format(totalRevenue)}")
+        println("Avg Single Price:       £${"%.2f".format(avgPriceSingle)}")
+        println("Avg Return Price:       £${"%.2f".format(avgPriceReturn)}")
 
-        if (destinations.isNotEmpty()) {
-            val avgSingle = destinations.map { it.singlePrice }.average()
-            val avgReturn = destinations.map { it.returnPrice }.average()
-
-            println("\nAverage Prices:")
-            println("  Single: �${"%.2f".format(avgSingle)}")
-            println("  Return: �${"%.2f".format(avgReturn)}")
-
-            val topDestination = destinations.maxByOrNull { it.totalTakings }
-            if (topDestination != null && topDestination.totalTakings > 0) {
-                println("\nTop Destination:")
-                println("  ${topDestination.name} - �${"%.2f".format(topDestination.totalTakings)} in sales")
-            }
+        if (mostPopular != null && mostPopular.salesCount > 0) {
+            println("\nMost Popular Destination:")
+            println("  ${mostPopular.name} (${mostPopular.salesCount} tickets sold)")
         }
-
-        println("\nCurrent Balance: �${"%.2f".format(ticketMachine.getInsertedMoney())}")
-        println()
+        println("========================================\n")
     }
 }
