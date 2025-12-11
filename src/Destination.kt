@@ -34,4 +34,10 @@ class Destination(
         println("Total Sales: $salesCount")
         println("Total Takings: £${"%.2f".format(totalTakings)}")
     }
+
+
+    fun updatePrices(newSinglePrice: Double, newReturnPrice: Double) {
+        singlePrice = newSinglePrice
+        returnPrice = newReturnPrice
+    }
 }
